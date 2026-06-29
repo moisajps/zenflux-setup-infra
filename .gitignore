@@ -4,3 +4,4 @@ node_modules/
 .config/
 .DS_Store
 .vercel/
+*.tsbuildinfo
