@@ -185,3 +185,20 @@ Remapeamento direto do `RUNBOOK.md` (manual) → produto (self-serve):
 - `handoff-infra-cliente/assets/skills-essenciais.md` → `dependencias.md`.
 - `handoff-infra-cliente/tutorial/TUTORIAL.md` → README do cliente.
 - site Next.js de produção próprio (pasta local da Moisa) → base do site (estrutura, components, lib).
+
+## 11. Melhorias de onboarding (inspiradas em produto de referência MIT)
+
+Referência analisada: `zxmarketingdigital/agente-ia-vendas` (agente WhatsApp, MIT). Mesmo
+padrão (repo + Claude conduz). Padrões adotados (adaptados à nossa stack Node/Vercel — sem
+Docker/Python):
+- **CLAUDE.md auto-inicia o setup** na primeira vez (mensagem de boas-vindas + roda
+  `node setup/check.mjs` + conduz `/setup`). Trava de primeira-vez: arquivo `.zenflux/setup-ok`
+  (gitignored → clones novos começam não-configurados; uso diário não re-dispara o setup).
+- **`setup/check.mjs`** (Node, sem shell — `execFileSync`): verifica node/git/claude e mostra
+  como instalar o que faltar, por SO (Win/Mac). É a verificação da Fase 0; complementa os
+  scripts de instalação do Plano 3.
+- **README com Quick Start de 1 linha** (`git clone … && cd … && claude`).
+- **`/setup` com etapas numeradas + barra de progresso** e coleta de marca (preenche
+  `content/site.config.ts`); cria o marcador `.zenflux/setup-ok` ao final.
+- **`docs/prerequisitos.md`** (Node + git, por SO).
+Não adotado: Docker/Python/Evolution (stack dele), guia visual HTML (fica p/ v2).

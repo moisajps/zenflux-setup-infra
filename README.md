@@ -3,6 +3,17 @@
 > Esta é a sua BASE. Você cria as páginas que quiser pedindo ao Claude.
 > Quem faz o trabalho pesado é o Claude — você descreve e aprova.
 
+## ⚡ Começo rápido
+
+Cole este comando no terminal e o Claude faz o resto (ele se abre e conduz o setup sozinho):
+
+```bash
+git clone <URL-DO-SEU-REPO> meu-site && cd meu-site && claude
+```
+
+> Ainda não tem Node/git? Veja [docs/prerequisitos.md](docs/prerequisitos.md) — leva 2 minutos.
+> Já tem o **app do Claude Code**? Pode abrir a pasta por ele em vez de usar o terminal.
+
 ## 1. O que você tem
 - **Claude Code** (app desktop OU dentro do VSCode) — a IA que cria/altera o site.
 - **Vercel** — onde o site fica no ar; atualiza sozinho quando você publica.

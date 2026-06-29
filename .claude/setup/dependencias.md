@@ -1,3 +1,4 @@
+<!-- Este arquivo é lido pelo comando /setup (Etapa 3). Se renomear/mover, atualize .claude/commands/setup.md. -->
 # Dependências de skills (instaladas pelo /setup)
 
 > Fonte: consolidado do handoff. Skills de vídeo (hyperframes) NÃO entram —

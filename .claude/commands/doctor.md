@@ -6,8 +6,9 @@ Aja como suporte técnico do projeto. Em português, diagnostique e, quando segu
 conserte — confirmando antes de mudanças.
 
 Checagens, nesta ordem (reporte cada uma com ✔/✖):
-1. `node --version` e `git --version` respondem? Se não, oriente reabrir o terminal
-   ou rodar o `bootstrap/` do SO.
+1. Rode `node setup/check.mjs` (verifica node/git/claude e mostra como instalar o
+   que faltar). Se nem `node` responder, oriente reabrir o terminal ou ver
+   `docs/prerequisitos.md`.
 2. `npm install` roda sem erro? Se falhar, leia a saída e corrija (versões, lockfile).
 3. `npm run build` passa? Se falhar, leia o erro e proponha a correção mínima.
 4. `npm run lint` passa? (e `npm run test`, se existir o script — a base não tem.)

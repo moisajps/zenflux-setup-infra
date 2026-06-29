@@ -1,5 +1,22 @@
 # Projeto do Cliente — Regras para o Claude Code
 
+> **CLAUDE — AO ABRIR ESTE PROJETO, SUA PRIMEIRA AÇÃO:**
+> Verifique se existe o arquivo `.zenflux/setup-ok`.
+>
+> - **SE EXISTIR:** o projeto já está configurado. **NÃO** rode o setup. Cumprimente
+>   em uma linha e pergunte o que a pessoa quer fazer hoje (ex.: criar/editar uma
+>   página, publicar). Siga as regras normais abaixo.
+> - **SE NÃO EXISTIR (primeira vez):** mande a mensagem de boas-vindas abaixo,
+>   execute `node setup/check.mjs` imediatamente e então conduza o fluxo do
+>   comando `/setup` passo a passo — **comece sozinho, sem esperar o usuário
+>   chamar `/setup`**. (Aguarde, sim, quando uma etapa exigir uma ação dele —
+>   ex.: fazer login no GitHub/Vercel pelo navegador.)
+>   Ao concluir o setup com sucesso, crie o arquivo marcador: `mkdir -p .zenflux && touch .zenflux/setup-ok`.
+>
+> **Mensagem de boas-vindas (primeira vez, copie e adapte):**
+> "Oi! 👋 Sou o Claude e vou te ajudar a colocar seu site no ar — sem você precisar
+> digitar comandos. Deixa eu primeiro verificar se sua máquina tem tudo que precisa..."
+
 ## O que é este projeto
 Base de site em Next.js, hospedada na Vercel. O cliente é não-técnico:
 explique em português claro e confirme antes de agir.
