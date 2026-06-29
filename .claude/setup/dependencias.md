@@ -1,40 +1,40 @@
 <!-- Este arquivo é lido pelo comando /setup (Etapa 3). Se renomear/mover, atualize .claude/commands/setup.md. -->
 # Complementos (skills) instalados pelo /setup
 
-> Duas fontes: **marketplace** (instala por comando) e **repositórios GitHub**
-> (skills que a Moisa mantém/usa fora do marketplace). Skills de vídeo (hyperframes)
-> NÃO entram — são de outro fluxo, não do produto de site.
+> Skills de vídeo (hyperframes) NÃO entram — são de outro fluxo, não do produto de site.
 
-## 1. Plugins de marketplace — instalar por comando
-Dentro do Claude Code:
+## 1. Marketplace oficial — instalar por comando
+O marketplace `claude-plugins-official` (repo `anthropics/claude-plugins-official`) já é
+conhecido por padrão. Dentro do Claude Code:
 ```
-/plugin install vercel@claude-plugins-official
+/plugin install context7@claude-plugins-official
+/plugin install code-review@claude-plugins-official
+/plugin install frontend-design@claude-plugins-official
+/plugin install skill-creator@claude-plugins-official
 /plugin install superpowers@claude-plugins-official
-/plugin install commit-commands@claude-plugins-official
 ```
-Depois: `/reload-plugins` e `/plugin list` para conferir.
-> Confirme o nome exato na aba Discover do `/plugin` antes de instalar (pode variar).
+> `superpowers` é necessário: a skill `comecar` o aciona para conduzir o usuário.
+
+## 2. Marketplace próprio — adicionar e depois instalar
+```
+/plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill
+/plugin install ui-ux-pro-max@ui-ux-pro-max-skill
+```
+
+Depois de tudo: `/reload-plugins` e `/plugin list` para conferir.
+> Antes de instalar, confirme o nome na aba Discover do `/plugin` (pode variar).
+
+## 3. Opcionais (recomendados)
+```
+/plugin install vercel@claude-plugins-official          # ajuda no deploy
+/plugin install commit-commands@claude-plugins-official # atalhos de git/commit
+```
 
 ### Só se o cliente for usar banco (add-on de leads)
 ```
 /plugin install supabase@claude-plugins-official
 ```
 
-## 2. Skills de repositórios GitHub
-Para skills que moram num repo GitHub (não no marketplace), há dois métodos:
-
-- **Como marketplace** (preferido quando o repo é um marketplace de plugins):
-  ```
-  /plugin marketplace add <usuario>/<repo>
-  /plugin install <nome-da-skill>@<repo>
-  ```
-- **Cópia manual** (quando é só uma pasta de skill): copiar `skills/<nome>/` do repo
-  para `.claude/skills/<nome>/` deste projeto (ou para `~/.claude/skills/<nome>/`).
-
-> ⚠️ LISTA A PREENCHER — a Moisa vai fornecer as skills exatas (nome + repo + método).
-> Modelo:
-> - `<nome-da-skill>` — repo `usuario/repo` — método: marketplace | cópia
-
-## 3. Skills próprias (já vêm neste projeto)
+## 4. Skills próprias (já vêm neste projeto)
 - `clonar-pagina` — recria uma página existente (URL + print) em código.
 - `comecar` — ponto de partida pós-setup: conduz o usuário a criar o que quiser.
