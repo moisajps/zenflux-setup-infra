@@ -5,14 +5,20 @@
 
 ## ⚡ Começo rápido
 
-Cole este comando no terminal e o Claude faz o resto (ele se abre e conduz o setup sozinho):
+Cole no terminal. O script verifica sua máquina e **já abre o Claude conduzindo o setup** — sem você digitar mais nada.
 
+**🍎 Mac / Linux:**
 ```bash
-git clone <URL-DO-SEU-REPO> meu-site && cd meu-site && claude
+git clone <URL-DO-SEU-REPO> meu-site && cd meu-site && bash iniciar.sh
+```
+
+**🪟 Windows (PowerShell):**
+```powershell
+git clone <URL-DO-SEU-REPO> meu-site; cd meu-site; .\iniciar.ps1
 ```
 
 > Ainda não tem Node/git? Veja [docs/prerequisitos.md](docs/prerequisitos.md) — leva 2 minutos.
-> Já tem o **app do Claude Code**? Pode abrir a pasta por ele em vez de usar o terminal.
+> Já tem o **app do Claude Code**? Pode abrir a pasta por ele; o Claude começa o setup ao receber a primeira mensagem (ex.: "vamos começar").
 
 ## 1. O que você tem
 - **Claude Code** (app desktop OU dentro do VSCode) — a IA que cria/altera o site.
