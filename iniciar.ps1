@@ -7,14 +7,19 @@ Write-Host "============================================================"
 Write-Host " zenflux - vamos colocar seu site no ar"
 Write-Host "============================================================"
 
-# 1. Node e obrigatorio
-if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+# 1. Se faltar node ou git, instala automaticamente (bootstrap)
+if ((-not (Get-Command node -ErrorAction SilentlyContinue)) -or (-not (Get-Command git -ErrorAction SilentlyContinue))) {
   Write-Host ""
-  Write-Host "X Node.js nao esta instalado - ele e necessario." -ForegroundColor Red
-  Write-Host "  Veja como instalar em: docs/prerequisitos.md"
-  Write-Host "  (no Windows, normalmente: winget install OpenJS.NodeJS.LTS)"
-  Write-Host ""
-  exit 1
+  Write-Host "Faltam pre-requisitos (Node e/ou git). Vou instalar pra voce..."
+  & "$PSScriptRoot\bootstrap\install.ps1"
+  # winget nao atualiza o PATH da sessao atual: se ainda nao aparecer, e so reabrir.
+  if ((-not (Get-Command node -ErrorAction SilentlyContinue)) -or (-not (Get-Command git -ErrorAction SilentlyContinue))) {
+    Write-Host ""
+    Write-Host "Instalei o necessario - agora FECHE e REABRA o PowerShell e rode de novo:" -ForegroundColor Yellow
+    Write-Host "   .\iniciar.ps1"
+    Write-Host ""
+    exit 0
+  }
 }
 
 # 2. Checa pre-requisitos (mostra o que falta, por SO)

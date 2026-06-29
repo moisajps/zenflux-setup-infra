@@ -8,14 +8,26 @@ echo "============================================================"
 echo " zenflux — vamos colocar seu site no ar"
 echo "============================================================"
 
-# 1. Node é obrigatório (o resto o check.mjs valida)
-if ! command -v node >/dev/null 2>&1; then
+# 1. Se faltar node ou git, instala automaticamente (bootstrap)
+if ! command -v node >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then
   echo ""
-  echo "✖ Node.js não está instalado — ele é necessário."
-  echo "  Veja como instalar em: docs/prerequisitos.md"
-  echo "  (no Mac, normalmente: brew install node)"
-  echo ""
-  exit 1
+  echo "Faltam pré-requisitos (Node e/ou git). Vou instalar pra você..."
+  bash bootstrap/install.sh || {
+    echo "Não consegui instalar automaticamente. Veja docs/prerequisitos.md"
+    exit 1
+  }
+  # Tenta trazer o que foi instalado para o PATH desta sessão (Homebrew no Mac).
+  [ -x /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null || true
+  [ -x /usr/local/bin/brew ]   && eval "$(/usr/local/bin/brew shellenv)" 2>/dev/null || true
+  hash -r 2>/dev/null || true
+  # Se ainda não aparecer, é só questão de reabrir o terminal (PATH novo).
+  if ! command -v node >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then
+    echo ""
+    echo "✅ Instalei o necessário — agora FECHE e REABRA o terminal e rode de novo:"
+    echo "   bash iniciar.sh"
+    echo ""
+    exit 0
+  fi
 fi
 
 # 2. Checa pré-requisitos (mostra o que falta, por SO)
