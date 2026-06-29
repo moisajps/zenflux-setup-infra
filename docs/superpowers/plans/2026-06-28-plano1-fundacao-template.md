@@ -110,17 +110,12 @@ const config = { plugins: ["@tailwindcss/postcss"] };
 export default config;
 ```
 
-`eslint.config.mjs`:
+`eslint.config.mjs` (Next 16 já exporta flat config nos subpaths — usar direto, sem FlatCompat):
 ```js
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import nextConfig from "eslint-config-next/core-web-vitals";
+import tsConfig from "eslint-config-next/typescript";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const compat = new FlatCompat({ baseDirectory: __dirname });
-
-const eslintConfig = [...compat.extends("next/core-web-vitals", "next/typescript")];
+const eslintConfig = [...nextConfig, ...tsConfig];
 export default eslintConfig;
 ```
 
@@ -433,7 +428,9 @@ git commit -m "feat: home mínima usando os componentes da base"
 ### Task 5: Camada de segurança (CLAUDE.md + settings + hook)
 
 **Files:**
-- Create: `CLAUDE.md`, `.claude/settings.json`, `.claude/hooks/block-env-commit.sh`, `.env.example`
+- Create: `CLAUDE.md`, `.claude/settings.json`, `.claude/hooks/block-env-commit.sh`
+- (Nota: a base NÃO traz `.env.example` — ela não usa banco. As variáveis de
+  ambiente só aparecem no add-on opcional de leads, Plano 2.)
 
 **Interfaces:**
 - Produces: regras de segurança que o Claude do cliente lê toda sessão + hook que impede commitar `.env`.
@@ -515,24 +512,18 @@ Instrução direta do usuário > este CLAUDE.md > comportamento padrão.
 set -euo pipefail
 input="$(cat)"
 cmd="$(printf '%s' "$input" | grep -o '"command"[^,]*' || true)"
-if printf '%s' "$cmd" | grep -Eq 'git (add|commit).*\.env'; then
+if printf '%s' "$cmd" | grep -Eq 'git (add|commit).*\.env([^a-zA-Z]|$)'; then
   echo "BLOQUEADO: tentativa de versionar arquivo .env. Credenciais nunca vão pro git." >&2
   exit 2
 fi
 exit 0
 ```
 
-- [ ] **Step 4: Tornar executável + `.env.example`**
+- [ ] **Step 4: Tornar o hook executável**
 
 Run: `chmod +x .claude/hooks/block-env-commit.sh`
 
-`.env.example`:
-```bash
-# Só é necessário se o projeto usar banco (Supabase) — add-on opcional.
-# Copie para .config/.env.local e preencha. NUNCA commite o arquivo preenchido.
-# NEXT_PUBLIC_SUPABASE_URL=
-# NEXT_PUBLIC_SUPABASE_ANON_KEY=
-```
+(A base não cria `.env.example` — não usa banco. Isso fica no add-on opcional, Plano 2.)
 
 - [ ] **Step 5: Verificar que o hook bloqueia**
 
