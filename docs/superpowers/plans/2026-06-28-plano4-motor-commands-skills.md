@@ -4,7 +4,7 @@
 
 **Goal:** Fechar o produto self-serve: os comandos que o cliente usa (`/setup`, `/doctor`, `/clonar-pagina`, `/nova-pagina`, `/deploy`, `/validar`), a lista de skills (`dependencias.md`) e a skill própria de clonagem — tudo dentro do projeto (sem plugin).
 
-**Architecture:** Cada comando é um arquivo markdown em `.claude/commands/<nome>.md` (frontmatter + prompt) que o Claude do cliente executa. `/setup` automatiza o runbook (instala skills da lista, coleta/valida chaves, aplica RLS, cria admin). A inteligência de clonagem mora numa skill própria em `.claude/skills/clonar-pagina/SKILL.md`. Como comandos/skills são instruções (prosa), a verificação é estrutural (arquivos válidos) + smoke ao vivo numa sessão do Claude.
+**Architecture:** Cada comando é um arquivo markdown em `.claude/commands/<nome>.md` (frontmatter + prompt) que o Claude do cliente executa. `/setup` automatiza o runbook (instala skills da lista, conecta na Vercel, faz o primeiro deploy; banco/Supabase só se o cliente quiser). A inteligência de clonagem mora numa skill própria em `.claude/skills/clonar-pagina/SKILL.md`. Como comandos/skills são instruções (prosa), a verificação é estrutural (arquivos válidos) + smoke ao vivo numa sessão do Claude.
 
 **Tech Stack:** Claude Code custom commands & skills (markdown). Plugins de terceiros via `/plugin install`.
 
@@ -135,13 +135,13 @@ git commit -m "feat: skill própria clonar-pagina"
 
 **Interfaces:**
 - Consumes: `dependencias.md` (Task 1), migration do Plano 2, `.env.example` do Plano 1.
-- Produces: fluxo guiado que deixa o projeto configurado (skills, chaves, RLS, admin, deploy).
+- Produces: fluxo guiado que deixa o projeto configurado (skills, Vercel, deploy; banco opcional).
 
 - [ ] **Step 1: Criar `.claude/commands/setup.md`**
 
 ```markdown
 ---
-description: Configura o projeto do zero — skills, contas, chaves Supabase, RLS, admin e primeiro deploy. Conduz o usuário passo a passo.
+description: Configura o projeto do zero — skills, contas, Vercel e primeiro deploy (banco/Supabase só se o cliente quiser). Conduz o usuário passo a passo.
 ---
 
 Você é o assistente de setup do zenflux-setup-infra. Conduza o usuário (não-técnico)
@@ -155,19 +155,17 @@ Siga nesta ordem, marcando o que já foi feito:
 2. **Skills** — leia `.claude/setup/dependencias.md` e instale os plugins listados
    (`/plugin install ...`). Rode `/reload-plugins` e `/plugin list` para confirmar.
 
-3. **Chaves Supabase** — peça ao usuário a URL do projeto e a chave publishable
-   (Supabase > Settings > API). Grave em `.config/.env.local` com as chaves
-   `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`. NUNCA commitar.
+3. **Vercel** — guie o import do repositório do GitHub na Vercel e faça o
+   primeiro deploy. Confirme que cada `git push` na `main` publica.
 
-4. **Banco** — aplique `supabase/migrations/0001_leads.sql` no projeto Supabase
-   (oriente pelo SQL Editor). Confirme que a tabela `leads` e as policies existem.
+4. **Banco (OPCIONAL)** — pergunte: "este site vai guardar dados, tipo cadastros/leads?"
+   - Se **não**: pule para o passo 5.
+   - Se **sim**: rode o add-on do Plano 2 (captura de leads). Peça URL + chave
+     publishable do Supabase (Settings > API), grave em `.config/.env.local`
+     (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — NUNCA commitar),
+     configure as mesmas env vars na Vercel, aplique a migration e crie o usuário admin.
 
-5. **Admin** — crie o usuário admin (Authentication > Users) com e-mail/senha do cliente.
-
-6. **Vercel** — guie o import do repositório do GitHub na Vercel e configure as
-   mesmas env vars (Production/Preview/Development). Faça o primeiro deploy.
-
-7. **Validação** — rode `/validar` e confirme o checklist final.
+5. **Validação** — rode `/validar` e confirme o checklist final.
 
 Ao terminar, mostre um resumo do que ficou pronto e os próximos passos
 (`/clonar-pagina`, `/nova-pagina`, `/deploy`).
@@ -301,9 +299,11 @@ description: Roda o checklist de saúde do projeto antes de publicar.
 Valide o projeto e reporte ✔/✖ para cada item:
 1. `npm run build` passa.
 2. `npm run lint` passa.
-3. `npm run test` passa.
-4. Rotas respondem: suba `npm run dev` e cheque `/`, `/captura/`, `/obrigado/`, `/admin/` (HTTP 200).
-5. `.config/.env.local` presente (se o site usa Supabase).
+3. Se existir script `test` no `package.json`, `npm run test` passa. (A base não tem
+   testes; o add-on de leads adiciona.)
+4. Rotas respondem: suba `npm run dev` e cheque a home `/` (HTTP 200) e quaisquer
+   páginas que o cliente tenha criado.
+5. Se o site usa Supabase (add-on opcional): `.config/.env.local` presente.
 
 Se algo falhar, NÃO recomende publicar — proponha a correção (ou rode `/doctor`).
 ```

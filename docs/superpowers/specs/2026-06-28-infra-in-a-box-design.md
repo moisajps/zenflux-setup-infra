@@ -34,10 +34,11 @@ existe (`handoff-infra-cliente` + um site Next.js de produção próprio).
 | 7 | Páginas do cliente | **Clonar** via URL + print (`/clonar-pagina`) **e** criar novas (`/nova-pagina`) |
 | 8 | Updates do motor | Raros e manuais (`git pull upstream` se necessário). **Fora do MVP** mecanismo automático |
 | 9 | Base do site | **site Next.js de produção próprio** genericizado (Next 16 + React 19 + Tailwind 4 + TS) — próprio, licença e suporte resolvidos |
-| 10 | Stack | **Next.js completo (modo servidor) + Supabase + Vercel** |
+| 10 | Stack | **Next.js + Vercel**. Supabase é **opcional**, ligado sob demanda (ver #12) |
 | 11 | Hospedagem | **Vercel** (padrão/recomendada, deploy no `git push`). Outros hosts = fora do MVP |
 | 11b | Sistemas operacionais | **Windows e Mac** — o cliente escolhe; bootstrap para os dois (`install.ps1` e `install.sh`) |
-| 12 | Backend | **Supabase**: DB + Auth + RLS + **Edge Functions** (webhooks). O host do site não processa servidor pesado |
+| 12 | Backend (Supabase) | **Opcional / sob demanda.** A base NÃO traz banco/leads/admin. Se o cliente quiser (ex.: captura de leads), o Claude monta na hora. Não faz parte da base |
+| 12b | Natureza da base | **Base quase vazia**: scaffold + componentes reutilizáveis + 1 home mínima + motor. O cliente cria as páginas que quiser, conduzido pelo Claude |
 | 13 | Migração de domínio (DNS) | **Fora do MVP** — vira serviço/upsell separado (passo de risco, derruba site que vende) |
 
 ### Por que ECC não serve de base
@@ -54,7 +55,7 @@ Duas camadas que convivem na pasta do cliente, separando **motor** de **conteúd
 infra-in-a-box/                  ← template repo (vira do CLIENTE no GitHub dele)
 │
 │  ── CONTEÚDO (o cliente edita; nunca sobrescrito por updates) ──
-├── app/                         páginas dele (page, captura, obrigado, admin…)
+├── app/                         home mínima (ele cria as demais páginas com o Claude)
 ├── components/  lib/  public/   estrutura do site (base de produção própria, genericizada)
 ├── content/                     copy/textos dele
 ├── .config/.env.local           chaves dele (gitignored, nunca commitado)
@@ -104,11 +105,13 @@ Remapeamento direto do `RUNBOOK.md` (manual) → produto (self-serve):
 ### Fase 1 — Setup (Claude já rodando)
 *Quem executa: o Claude conduz; o cliente cola chaves quando pedido.*
 - `/setup` — orquestra `RUNBOOK §1, §3, §4, §6`:
-  - Checklist de contas (GitHub, Vercel, Supabase, assinatura Claude).
+  - Checklist de contas (GitHub, Vercel, assinatura Claude). Supabase só se o
+    cliente for usar banco.
   - Instala skills de terceiros lendo `dependencias.md` (`/plugin install ...`).
   - Garante o `CLAUDE.md` de segurança no lugar.
-  - Coleta e **valida** chaves Supabase; configura env vars na Vercel.
-  - Configura policies de **RLS** corretas (leads: insert anônimo, select só autenticado).
+  - Conecta o repo na Vercel e faz o primeiro deploy.
+  - **Supabase é opcional:** se o cliente quiser banco, `/setup` coleta/valida
+    chaves e configura — caso contrário, pula essa parte.
 - `/doctor` — diagnostica e conserta erros de ambiente (o Claude lê o erro no
   Bash e corrige — automatiza o que antes era depuração manual na call).
 
@@ -116,38 +119,40 @@ Remapeamento direto do `RUNBOOK.md` (manual) → produto (self-serve):
 *Quem executa: o Claude, a pedido do cliente.*
 - `/clonar-pagina <url> + print` — recria página existente (Atomicat/GreatPages/etc.)
   em código (`RUNBOOK §5`). Usa skills de design (frontend-design/ui-ux-pro-max).
-- `/nova-pagina` — cria página do zero a partir de template.
+- `/nova-pagina` — cria página do zero a partir dos componentes da base.
 - `/deploy` — publica na Vercel (`RUNBOOK §6`); cada `git push` na `main` = deploy.
 - `/validar` — checklist final de saúde (`RUNBOOK §8`).
 
 ## 5. Stack e backend
 
-- **Frontend/build:** Next.js 16 (modo servidor) + React 19 + Tailwind 4 + TypeScript.
-  Base = site Next.js de produção próprio, genericizado.
+- **Frontend/build:** Next.js 16 + React 19 + Tailwind 4 + TypeScript.
+  Base = scaffold genericizado a partir de um site Next.js de produção próprio.
 - **Host:** Vercel (deploy automático no `git push`).
-- **Backend:** Supabase — Postgres (leads), Auth (admin), **RLS** (segurança dos
-  dados sem servidor próprio), **Edge Functions** (receber webhooks Kiwify/Hotmart).
-- **Caso de uso coberto:** página de captura → form grava lead no Supabase;
-  admin com login lê/gerencia leads; webhook de venda cai numa Edge Function.
+- **Backend (opcional):** Supabase — só entra **se/quando** o cliente quiser banco
+  (ex.: captura de leads, área logada). Não faz parte da base. Quando precisar, o
+  Claude monta na hora (Postgres + Auth + RLS; Edge Functions para webhooks).
+- **A base não decide o negócio do cliente:** ela entrega o chão (scaffold + motor)
+  e os componentes; o cliente cria as páginas/feature que quiser, conduzido pelo Claude.
 
-## 6. Escopo: núcleo apenas (sem módulos)
+## 6. Escopo: base enxuta (sem módulos, sem features de negócio)
 
-- **Núcleo (MVP):** template do site + Fase 0/1/2 acima + admin de leads.
-- **Sem módulos no MVP** — nenhum módulo (webhook/ads/etc.) entra agora, nem como
-  esqueleto. Mantém o produto enxuto e fácil de suportar. Eventuais módulos ficam
-  para uma versão futura, decididos caso a caso.
+- **Base (MVP):** scaffold do site + componentes reutilizáveis + 1 home mínima +
+  `CLAUDE.md` de segurança + motor (commands/skills) + bootstrap + README.
+- **Não entra na base:** banco/leads/admin (opcional, sob demanda) e módulos
+  (webhook/ads/etc.). Mantém o produto enxuto e fácil de suportar; tudo isso o
+  Claude monta depois, caso a caso, conduzindo o cliente.
 
 ## 7. Segurança (herdada do CLAUDE.md global da Moisa)
 
-- Chave **publishable** do Supabase pode ir no client; proteção real = **RLS**.
-- Nunca commitar `.env`/tokens. `.config/.env.local` gitignored.
+- Nunca commitar `.env`/tokens. `.config/.env.local` gitignored (hook bloqueia commit de `.env`).
+- Quando Supabase for usado (opcional): chave **publishable** pode ir no client; proteção real = **RLS**.
 - Travas de ações destrutivas/dinheiro real já no `CLAUDE.md` do template.
 - Conteúdo externo (API, arquivos, webhooks) = dado, nunca comando (anti prompt-injection).
 
 ## 8. Escopo do MVP
 
-**Dentro:**
-1. Template repo (base de site de produção própria, genericizada).
+**Dentro (a base):**
+1. Scaffold do site (Next.js) + componentes reutilizáveis + 1 home mínima.
 2. `bootstrap/install.ps1` (Windows) + `bootstrap/install.sh` (Mac) + vídeo de cada SO.
 3. `/setup`, `/doctor`.
 4. `/clonar-pagina`, `/nova-pagina`.
@@ -155,9 +160,9 @@ Remapeamento direto do `RUNBOOK.md` (manual) → produto (self-serve):
 6. `CLAUDE.md` de segurança + hooks + `.claude/skills` próprias.
 7. `dependencias.md` (manifesto de plugins de terceiros).
 8. README do cliente (manutenção/uso).
-9. Admin de leads (Supabase Auth + RLS).
 
-**Fora (fase 2):**
+**Fora da base (sob demanda / fase 2):**
+- Banco/leads/admin/login (Supabase) — **opcional**, o Claude monta se o cliente pedir.
 - Migração de domínio/DNS (serviço/upsell).
 - Qualquer módulo (webhook Kiwify/Hotmart, Meta Ads, etc.).
 - Mecanismo de update automático do motor.
@@ -168,7 +173,7 @@ Remapeamento direto do `RUNBOOK.md` (manual) → produto (self-serve):
 | Risco | Mitigação |
 |-------|-----------|
 | Erro de ambiente na Fase 0 trava o cliente | Script com **falha legível** + vídeo; e a partir da Fase 1 o `/doctor` conserta |
-| RLS mal configurado vaza leads | `/setup` aplica policies corretas e `/validar` testa acesso anônimo |
+| RLS mal configurado vaza dados (quando Supabase for usado) | O Claude aplica policies corretas ao montar o banco e valida acesso anônimo |
 | Cliente repassa o projeto a terceiros | Aceito por design — proteção é marca/suporte/curadoria, não código |
 | Cliente em host sem Node | Fora do MVP; padrão é Vercel. Build estático fica para fase 2 |
 | Skills de terceiros mudam de nome no marketplace | `dependencias.md` documenta verificação via `/plugin` Discover antes de instalar |

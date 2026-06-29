@@ -1,45 +1,48 @@
-# zenflux-setup-infra — Plano 2: Backend de Leads (Supabase)
+# zenflux-setup-infra — Plano 2 (OPCIONAL): Captura de Leads com Supabase
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fazer o formulário de captura gravar o lead de verdade no Supabase e o `/admin` listar os leads com login e segurança (RLS), sem expor dados a visitantes anônimos.
+> ⚠️ **ADD-ON OPCIONAL — não faz parte da base.** Execute este plano só quando um
+> cliente realmente quiser captura de leads (formulário → banco) e uma área para
+> ver os cadastros. A base (Plano 1) funciona 100% sem isto. Quando o cliente pedir,
+> o Claude pode rodar este plano sobre a base existente.
 
-**Architecture:** O site estático/Next fala direto com o Supabase pelo navegador (sem servidor próprio). A proteção é por **RLS**: anônimo só pode **inserir** lead; só **autenticado** pode **ler**. O cliente Supabase é criado de forma preguiçosa (lazy) para o build seguir verde sem chaves. O `submitLead` do Plano 1 troca o corpo (mesma assinatura) por um insert real; o `/admin` vira client component com login (Supabase Auth) e listagem.
+**Goal:** Adicionar à base, sob demanda, uma página de captura que grava o lead no Supabase e uma área de admin (com login) que lista os leads — com segurança por RLS (anônimo só insere; só logado lê).
 
-**Tech Stack:** `@supabase/supabase-js` · Supabase (Postgres + Auth + RLS) · Next.js client components.
+**Architecture:** O site fala direto com o Supabase pelo navegador (sem servidor próprio); a proteção é o **RLS**. O cliente Supabase é lazy (build verde sem chaves). A validação do formulário fica isolada em `lib/leads.ts` e é coberta por teste (TDD). Este plano cria tudo o que precisa: client, util, form, páginas e admin.
+
+**Tech Stack:** `@supabase/supabase-js` · Supabase (Postgres + Auth + RLS) · Vitest (validação) · Next.js client components.
 
 ## Global Constraints
 
-- Mantém pisos do Plano 1 (Next 16.2.9 / React 19.2.4 / Tailwind 4 / TS strict).
+- Pré-requisito: Plano 1 concluído (scaffold, componentes, `content/site.config.ts`).
+- Pisos do Plano 1 (Next 16.2.9 / React 19.2.4 / Tailwind 4 / TS strict).
 - Chave usada no front é a **publishable/anon** (pública por design) — proteção real é RLS.
-- `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` vêm de `.config/.env.local` (gitignored).
-- Build **continua verde mesmo sem as chaves** (cliente Supabase lazy; falha amigável só em runtime).
+- Env em `.config/.env.local` (gitignored). **Build verde mesmo sem chaves** (client lazy).
 - Nunca commitar `.env`. Idioma: pt-BR.
 - Cada task termina com `npm run build`, `npm run lint`, `npm run test` verdes antes do commit.
 
 ---
 
-### Task 1: Cliente Supabase (lazy) + dependência
+### Task 1: Runner de teste + cliente Supabase (lazy)
 
 **Files:**
+- Modify: `package.json` (add `@supabase/supabase-js`, `vitest`, script `test`)
 - Create: `lib/supabase.ts`
-- Modify: `package.json`
 
 **Interfaces:**
-- Consumes: env `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-- Produces: `getSupabase(): SupabaseClient` — lança erro amigável "Supabase não configurado. Rode /setup." se faltar env. Usado por `lib/leads.ts` (Task 3) e `/admin` (Task 4).
+- Produces: `getSupabase(): SupabaseClient` — lança "Supabase não configurado. Rode /setup." se faltar env. Usado por `lib/leads.ts` e admin.
 
-- [ ] **Step 1: Adicionar dependência em `package.json`**
+- [ ] **Step 1: Atualizar `package.json`**
 
-Em `dependencies`, somar:
-```json
-"@supabase/supabase-js": "^2"
-```
+Adicionar em `dependencies`: `"@supabase/supabase-js": "^2"`.
+Adicionar em `devDependencies`: `"vitest": "^2"`.
+Adicionar em `scripts`: `"test": "vitest run"`.
 
 - [ ] **Step 2: `npm install`**
 
 Run: `npm install`
-Expected: instala `@supabase/supabase-js` sem erro.
+Expected: instala sem erro.
 
 - [ ] **Step 3: Criar `lib/supabase.ts`**
 
@@ -48,14 +51,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 let client: SupabaseClient | null = null;
 
-// Lazy: só cria (e só exige env) quando realmente usado, mantendo o build verde
-// num template entregue sem chaves. O /setup preenche as variáveis.
+// Lazy: só exige env quando usado, mantendo o build verde sem chaves.
 export function getSupabase(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anon) {
-    throw new Error("Supabase não configurado. Rode /setup.");
-  }
+  if (!url || !anon) throw new Error("Supabase não configurado. Rode /setup.");
   client ??= createClient(url, anon);
   return client;
 }
@@ -64,108 +64,66 @@ export function getSupabase(): SupabaseClient {
 - [ ] **Step 4: Validar build/lint**
 
 Run: `npm run build && npm run lint`
-Expected: verdes (nenhuma página chama `getSupabase` ainda, então sem env já compila).
+Expected: verdes (nada chama `getSupabase` ainda).
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "feat: cliente Supabase lazy (build verde sem chaves)"
+git commit -m "feat(leads): cliente Supabase lazy + runner de teste"
 ```
 
 ---
 
-### Task 2: Migration da tabela `leads` + RLS
+### Task 2: Validação + envio do lead (TDD)
 
 **Files:**
-- Create: `supabase/migrations/0001_leads.sql`
+- Create: `lib/leads.ts`, `lib/leads.test.ts`
 
 **Interfaces:**
-- Consumes: nada de código.
-- Produces: tabela `public.leads(id, name, email, created_at)` com RLS: insert anônimo, select só autenticado. Aplicada no projeto Supabase do cliente (manual aqui; automatizada pelo `/setup` no Plano 4).
+- Consumes: `getSupabase` (Task 1).
+- Produces:
+  - `isValidEmail(email: string): boolean`
+  - `submitLead(input: { name: string; email: string }): Promise<{ ok: boolean; error?: string }>` — valida antes de tocar no banco; insere em `leads`.
 
-- [ ] **Step 1: Criar `supabase/migrations/0001_leads.sql`**
+- [ ] **Step 1: Escrever o teste que falha (`lib/leads.test.ts`)**
 
-```sql
--- Tabela de leads capturados pelo formulário.
-create table if not exists public.leads (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  email text not null,
-  created_at timestamptz not null default now()
-);
-
--- Segurança: sem servidor próprio, quem protege é o RLS.
-alter table public.leads enable row level security;
-
--- Visitante anônimo PODE inserir (mandar o formulário)...
-create policy "anon insere leads"
-  on public.leads for insert
-  to anon
-  with check (true);
-
--- ...mas NÃO pode ler. Só usuário autenticado (admin) lê os leads.
-create policy "autenticado le leads"
-  on public.leads for select
-  to authenticated
-  using (true);
-```
-
-- [ ] **Step 2: Aplicar no Supabase do cliente (manual / via /setup no futuro)**
-
-Aplicar o SQL no projeto Supabase (SQL Editor do dashboard ou `supabase db push`).
-Expected: tabela `leads` criada; em Authentication > Policies aparecem as 2 policies.
-
-- [ ] **Step 3: Verificar RLS (anônimo não lê)**
-
-Com a chave **anon**, tentar `select * from leads` deve voltar **vazio/negado**; `insert` deve funcionar. (Testável no SQL Editor com "Run as: anon" ou via app na Task 3.)
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add -A
-git commit -m "feat: migration da tabela leads com RLS (insert anon, select autenticado)"
-```
-
----
-
-### Task 3: Trocar o stub `submitLead` por insert real (TDD na validação)
-
-**Files:**
-- Modify: `lib/leads.ts`
-- Modify: `lib/leads.test.ts`
-
-**Interfaces:**
-- Consumes: `getSupabase` (Task 1), `isValidEmail` (Plano 1).
-- Produces: `submitLead` com **mesma assinatura** do Plano 1, agora inserindo em `leads`. Validação acontece **antes** de tocar no Supabase (testável sem rede).
-
-- [ ] **Step 1: Adicionar testes de validação do `submitLead` (falham antes da mudança de contrato)**
-
-Acrescentar em `lib/leads.test.ts`:
 ```ts
-import { submitLead } from "@/lib/leads";
+import { describe, it, expect } from "vitest";
+import { isValidEmail, submitLead } from "@/lib/leads";
 
-describe("submitLead — validação (antes da rede)", () => {
-  it("rejeita nome vazio sem chamar o banco", async () => {
-    const r = await submitLead({ name: "  ", email: "a@b.com" });
-    expect(r).toEqual({ ok: false, error: "Informe seu nome." });
-  });
-  it("rejeita e-mail inválido sem chamar o banco", async () => {
-    const r = await submitLead({ name: "Ana", email: "invalido" });
-    expect(r).toEqual({ ok: false, error: "E-mail inválido." });
-  });
+describe("isValidEmail", () => {
+  it("aceita válido", () => expect(isValidEmail("ana@dominio.com.br")).toBe(true));
+  it("rejeita sem arroba", () => expect(isValidEmail("anadominio.com")).toBe(false));
+  it("rejeita sem domínio", () => expect(isValidEmail("ana@")).toBe(false));
+  it("rejeita vazio", () => expect(isValidEmail("")).toBe(false));
+});
+
+describe("submitLead — validação antes da rede", () => {
+  it("rejeita nome vazio", async () =>
+    expect(await submitLead({ name: " ", email: "a@b.com" })).toEqual({
+      ok: false, error: "Informe seu nome.",
+    }));
+  it("rejeita e-mail inválido", async () =>
+    expect(await submitLead({ name: "Ana", email: "x" })).toEqual({
+      ok: false, error: "E-mail inválido.",
+    }));
 });
 ```
 
-- [ ] **Step 2: Rodar e confirmar que passam com o stub atual**
+- [ ] **Step 2: Rodar e confirmar que falha**
 
 Run: `npm run test`
-Expected: PASS (o stub do Plano 1 já valida nome/e-mail). Isso fixa o contrato de validação antes de mexer no corpo.
+Expected: FALHA (arquivo `lib/leads.ts` não existe).
 
-- [ ] **Step 3: Substituir o corpo de `submitLead` em `lib/leads.ts` (mantendo `isValidEmail` intacto)**
+- [ ] **Step 3: Implementar `lib/leads.ts`**
 
 ```ts
 import { getSupabase } from "@/lib/supabase";
+
+export function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
 
 export async function submitLead(input: {
   name: string;
@@ -185,35 +143,191 @@ export async function submitLead(input: {
 }
 ```
 
-- [ ] **Step 4: Rodar test/build/lint**
+- [ ] **Step 4: Rodar e confirmar que passa**
 
-Run: `npm run test && npm run build && npm run lint`
-Expected: testes de validação seguem verdes; build verde (insert só roda no navegador em runtime).
+Run: `npm run test`
+Expected: PASS (6 testes).
 
-- [ ] **Step 5: Verificação real (com env preenchido)**
+- [ ] **Step 5: build/lint + commit**
 
-Com `.config/.env.local` preenchido e `npm run dev`: enviar o form em `/captura/` → deve redirecionar pra `/obrigado/` e criar 1 linha em `leads` (conferir no Supabase).
-
-- [ ] **Step 6: Commit**
-
+Run: `npm run build && npm run lint`
 ```bash
 git add -A
-git commit -m "feat: submitLead grava lead no Supabase (validação testada)"
+git commit -m "feat(leads): validação de e-mail e submitLead (TDD)"
 ```
 
 ---
 
-### Task 4: Admin com login (Supabase Auth) + listagem de leads
+### Task 3: Formulário + páginas de captura e obrigado
 
 **Files:**
-- Create: `components/AdminPanel.tsx`
-- Modify: `app/admin/page.tsx`
+- Create: `components/LeadForm.tsx`, `app/captura/page.tsx`, `app/obrigado/page.tsx`
+
+**Interfaces:**
+- Consumes: `submitLead` (Task 2), componentes da base (`SiteHeader`, `SiteFooter`, `CTAButton`), `siteConfig`.
+- Produces: rotas `/captura/` e `/obrigado/`.
+
+- [ ] **Step 1: Criar `components/LeadForm.tsx`**
+
+```tsx
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { submitLead } from "@/lib/leads";
+import { siteConfig } from "@/content/site.config";
+
+export function LeadForm({ redirectTo }: { redirectTo: string }) {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    const res = await submitLead({ name, email });
+    setLoading(false);
+    if (!res.ok) return setError(res.error ?? "Algo deu errado.");
+    router.push(redirectTo);
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="mx-auto flex max-w-md flex-col gap-3">
+      <input className="rounded border px-4 py-3" placeholder="Seu nome"
+        value={name} onChange={(e) => setName(e.target.value)} required />
+      <input className="rounded border px-4 py-3" type="email" placeholder="Seu melhor e-mail"
+        value={email} onChange={(e) => setEmail(e.target.value)} required />
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <button type="submit" disabled={loading}
+        className="rounded-lg px-6 py-3 font-semibold text-white disabled:opacity-60"
+        style={{ backgroundColor: siteConfig.primaryHex }}>
+        {loading ? "Enviando..." : "Quero receber"}
+      </button>
+    </form>
+  );
+}
+```
+
+- [ ] **Step 2: Criar `app/captura/page.tsx`**
+
+```tsx
+import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
+import { LeadForm } from "@/components/LeadForm";
+
+export default function Captura() {
+  return (
+    <>
+      <SiteHeader />
+      <main className="mx-auto max-w-2xl px-6 py-20 text-center">
+        <h1 className="text-3xl font-bold">Receba o material gratuito</h1>
+        <p className="mt-4 text-gray-600">Deixe seu nome e e-mail para começar.</p>
+        <div className="mt-8"><LeadForm redirectTo="/obrigado/" /></div>
+      </main>
+      <SiteFooter />
+    </>
+  );
+}
+```
+
+- [ ] **Step 3: Criar `app/obrigado/page.tsx`**
+
+```tsx
+import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
+import { CTAButton } from "@/components/CTAButton";
+import { siteConfig } from "@/content/site.config";
+
+export default function Obrigado() {
+  return (
+    <>
+      <SiteHeader />
+      <main className="mx-auto max-w-2xl px-6 py-24 text-center">
+        <h1 className="text-3xl font-bold">Obrigado! 🎉</h1>
+        <p className="mt-4 text-gray-600">Recebemos seus dados.</p>
+        <div className="mt-8"><CTAButton href={siteConfig.ctaUrl} label="Próximo passo" /></div>
+      </main>
+      <SiteFooter />
+    </>
+  );
+}
+```
+
+- [ ] **Step 4: build/lint/test + smoke**
+
+Run: `npm run build && npm run lint && npm run test`
+Run: `npm run dev` (background); `for r in /captura/ /obrigado/; do curl -s -o /dev/null -w "$r %{http_code}\n" http://localhost:3000$r; done`
+Expected: tudo verde; `200` nas duas rotas.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A
+git commit -m "feat(leads): formulário + páginas de captura e obrigado"
+```
+
+---
+
+### Task 4: Migration `leads` + RLS
+
+**Files:**
+- Create: `supabase/migrations/0001_leads.sql`
+
+**Interfaces:**
+- Produces: tabela `public.leads` com RLS (insert anônimo, select só autenticado). Aplicada no Supabase do cliente.
+
+- [ ] **Step 1: Criar `supabase/migrations/0001_leads.sql`**
+
+```sql
+create table if not exists public.leads (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  email text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.leads enable row level security;
+
+-- Anônimo pode inserir (mandar o formulário)...
+create policy "anon insere leads"
+  on public.leads for insert to anon with check (true);
+
+-- ...mas só autenticado (admin) pode ler.
+create policy "autenticado le leads"
+  on public.leads for select to authenticated using (true);
+```
+
+- [ ] **Step 2: Aplicar no Supabase do cliente**
+
+Aplicar via SQL Editor do dashboard (ou `supabase db push`).
+Expected: tabela `leads` criada; 2 policies visíveis em Authentication > Policies.
+
+- [ ] **Step 3: Verificar RLS (anônimo não lê)**
+
+Com a chave **anon**: `insert` funciona; `select * from leads` volta vazio/negado.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add -A
+git commit -m "feat(leads): migration leads com RLS (insert anon, select autenticado)"
+```
+
+---
+
+### Task 5: Admin com login (Supabase Auth) + listagem
+
+**Files:**
+- Create: `components/AdminPanel.tsx`, `app/admin/page.tsx`
 
 **Interfaces:**
 - Consumes: `getSupabase` (Task 1).
-- Produces: `/admin` funcional — sem sessão mostra login; com sessão lista `leads` (id/nome/e-mail/data). RLS garante que sem login não há leitura.
+- Produces: `/admin` — sem sessão mostra login; com sessão lista `leads`. RLS garante que anônimo não lê.
 
-- [ ] **Step 1: Criar `components/AdminPanel.tsx` (client component)**
+- [ ] **Step 1: Criar `components/AdminPanel.tsx`**
 
 ```tsx
 "use client";
@@ -231,17 +345,14 @@ export function AdminPanel() {
   const [leads, setLeads] = useState<Lead[]>([]);
 
   useEffect(() => {
-    getSupabase()
-      .auth.getSession()
+    getSupabase().auth.getSession()
       .then(({ data }) => setAuthed(!!data.session))
       .catch(() => setAuthed(false));
   }, []);
 
   useEffect(() => {
     if (!authed) return;
-    getSupabase()
-      .from("leads")
-      .select("id,name,email,created_at")
+    getSupabase().from("leads").select("id,name,email,created_at")
       .order("created_at", { ascending: false })
       .then(({ data }) => setLeads((data as Lead[]) ?? []));
   }, [authed]);
@@ -250,8 +361,7 @@ export function AdminPanel() {
     e.preventDefault();
     setError(null);
     const { error } = await getSupabase().auth.signInWithPassword({ email, password });
-    if (error) setError("Login inválido.");
-    else setAuthed(true);
+    if (error) setError("Login inválido."); else setAuthed(true);
   }
 
   if (!authed) {
@@ -269,16 +379,11 @@ export function AdminPanel() {
 
   return (
     <table className="w-full text-left text-sm">
-      <thead>
-        <tr className="border-b">
-          <th className="py-2">Nome</th><th>E-mail</th><th>Data</th>
-        </tr>
-      </thead>
+      <thead><tr className="border-b"><th className="py-2">Nome</th><th>E-mail</th><th>Data</th></tr></thead>
       <tbody>
         {leads.map((l) => (
           <tr key={l.id} className="border-b">
-            <td className="py-2">{l.name}</td>
-            <td>{l.email}</td>
+            <td className="py-2">{l.name}</td><td>{l.email}</td>
             <td>{new Date(l.created_at).toLocaleString("pt-BR")}</td>
           </tr>
         ))}
@@ -291,7 +396,7 @@ export function AdminPanel() {
 }
 ```
 
-- [ ] **Step 2: Substituir `app/admin/page.tsx` pelo painel real**
+- [ ] **Step 2: Criar `app/admin/page.tsx`**
 
 ```tsx
 import { SiteHeader } from "@/components/SiteHeader";
@@ -310,27 +415,24 @@ export default function Admin() {
 }
 ```
 
-- [ ] **Step 3: Criar usuário admin no Supabase (manual / via /setup futuro)**
+- [ ] **Step 3: Criar usuário admin no Supabase**
 
-Em Authentication > Users > Add user: criar o e-mail/senha do cliente. (No Plano 4 o `/setup` faz isso.)
+Authentication > Users > Add user: e-mail/senha do cliente.
 
-- [ ] **Step 4: Validar build/lint**
+- [ ] **Step 4: build/lint + commit**
 
 Run: `npm run build && npm run lint`
-Expected: verdes.
+```bash
+git add -A
+git commit -m "feat(leads): admin com login Supabase Auth + RLS"
+```
 
 - [ ] **Step 5: Verificação real (RLS na prática)**
 
-Com env + `npm run dev`: abrir `/admin/` sem login → não mostra leads (RLS nega). Fazer login com o usuário admin → lista os leads. Confirma que anônimo não lê.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add -A
-git commit -m "feat: admin de leads com login Supabase Auth + RLS"
-```
+Com env + `npm run dev`: `/admin/` sem login não mostra leads (RLS nega); após login com o usuário admin, lista os leads. Enviar o form em `/captura/` cria 1 linha.
 
 ## Self-Review (Plano 2 vs spec)
-- Cobre: form→Supabase (T3), admin com Auth+RLS (T4), policies de segurança (T2), cliente lazy p/ build verde (T1).
-- Assinatura `submitLead` preservada do Plano 1 (contrato fixado por teste antes da troca de corpo).
-- Sem placeholders; passos manuais (aplicar migration, criar admin) são marcados e migram pro `/setup` no Plano 4.
+- É **add-on opcional** (banner no topo) — coerente com "Supabase é sob demanda".
+- Autossuficiente: cria client, util (TDD), form, páginas, migration/RLS e admin sobre a base.
+- Sem placeholders; passos manuais (migration, criar admin) marcados (migram pro `/setup`).
+- Consistência: `getSupabase` (T1) usado em T2/T5; `submitLead`/`isValidEmail` (T2) usados no form (T3).
