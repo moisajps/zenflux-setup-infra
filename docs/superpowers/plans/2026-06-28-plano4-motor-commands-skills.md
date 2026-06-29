@@ -34,17 +34,21 @@
 > Fonte: consolidado do handoff. Skills de vídeo (hyperframes) NÃO entram —
 > são de outro fluxo, não do produto de site.
 
-## 1. Plugins oficiais — instalar via comando
+## 1. Plugins oficiais da base — instalar via comando
 Dentro do Claude Code:
 ```
 /plugin install vercel@claude-plugins-official
-/plugin install supabase@claude-plugins-official
 /plugin install superpowers@claude-plugins-official
 /plugin install commit-commands@claude-plugins-official
 ```
 Depois: `/reload-plugins` e `/plugin list` para conferir.
 > Antes de instalar, confirmar o nome exato na aba Discover do `/plugin`
 > (nomes de marketplace podem variar).
+
+### Só se o cliente for usar banco (add-on de leads)
+```
+/plugin install supabase@claude-plugins-official
+```
 
 ## 2. Skills de design/UX — preferir plugin; copiar só se não houver
 - frontend-design
@@ -101,8 +105,9 @@ do projeto Next.js (para editar/hospedar aqui).
 1. Buscar a URL (WebFetch) para extrair textos, links de CTA e estrutura.
 2. Olhar o(s) print(s) para layout, cores, ordem das seções.
 3. Definir a rota: criar `app/<slug>/page.tsx` (slug curto, ex.: `/oferta/`).
-4. Reusar os componentes do projeto (`SiteHeader`, `SiteFooter`, `Hero`,
-   `CTAButton`, `LeadForm`). Criar componentes novos só se necessário.
+4. Reusar os componentes da base (`SiteHeader`, `SiteFooter`, `Hero`,
+   `CTAButton`, `Section`). Criar componentes novos só se necessário.
+   (`LeadForm` só existe se o add-on de captura de leads tiver sido instalado.)
 5. Levar marca/cores/links para `content/site.config.ts` quando forem globais.
 6. Acionar as skills de design (frontend-design / ui-ux-pro-max) para fidelidade.
 7. Rodar `npm run dev` e comparar com o original; iterar até bater.
@@ -210,10 +215,10 @@ Checagens, nesta ordem (reporte cada uma com ✔/✖):
 1. `node --version` e `git --version` respondem? Se não, oriente reabrir o terminal
    ou rodar o `bootstrap/` do SO.
 2. `npm install` roda sem erro? Se falhar, leia a saída e corrija (versões, lockfile).
-3. `.config/.env.local` existe com `NEXT_PUBLIC_SUPABASE_URL` e `_ANON_KEY`?
-   Se faltar, oriente o `/setup`.
-4. `npm run build` passa? Se falhar, leia o erro e proponha a correção mínima.
-5. `npm run lint` e `npm run test` passam?
+3. `npm run build` passa? Se falhar, leia o erro e proponha a correção mínima.
+4. `npm run lint` passa? (e `npm run test`, se existir o script — a base não tem.)
+5. Se o site usa Supabase (add-on opcional): `.config/.env.local` existe com
+   `NEXT_PUBLIC_SUPABASE_URL` e `_ANON_KEY`? Se faltar, oriente o `/setup`.
 
 Ao final, liste o que estava errado, o que foi corrigido e o que ainda precisa
 de ação do usuário. Nunca exponha chaves completas.
@@ -265,7 +270,8 @@ Crie uma página nova no projeto a partir desta descrição: $ARGUMENTS
 
 Diretrizes:
 - Crie a rota em `app/<slug>/page.tsx` (slug curto e claro).
-- Reuse `SiteHeader`, `SiteFooter`, `Hero`, `CTAButton`, `LeadForm`.
+- Reuse os componentes da base: `SiteHeader`, `SiteFooter`, `Hero`, `CTAButton`,
+  `Section`. (`LeadForm` só se o add-on de captura de leads existir.)
 - Marca/cores/links globais vêm de `content/site.config.ts`.
 - Acione skills de design (frontend-design / ui-ux-pro-max) para o visual.
 - Rode `npm run dev` para o usuário ver e itere. Valide com `/validar`.
@@ -320,6 +326,8 @@ Publique as alterações com segurança:
 2. Mostre ao usuário o resumo do que mudou (`git status`/`git diff --stat`).
 3. **Confirme** com o usuário antes de publicar ("posso publicar?").
 4. Só então: `git add -A`, `git commit -m "<mensagem clara>"`, `git push`.
+   (Antes do `git add -A`, confirme que `.config/` e `.env*` estão no `.gitignore`;
+   o hook `block-env-commit.sh` também barra qualquer `.env`.)
 5. A Vercel publica em 1-2 min. Informe a URL e como reverter se quebrar
    ("reverte a última publicação" → rollback do commit/deploy).
 
